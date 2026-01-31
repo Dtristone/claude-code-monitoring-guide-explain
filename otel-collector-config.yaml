@@ -26,12 +26,28 @@ exporters:
     sampling_initial: 5
     sampling_thereafter: 200
 
+  # File exporter for detailed session traces/logs
+  # Uncomment and configure to save traces to a file
+  # file/logs:
+  #   path: /var/log/otel/claude-code-traces.jsonl
+  #   rotation:
+  #     max_megabytes: 100
+  #     max_days: 7
+  #     max_backups: 5
+
 service:
   pipelines:
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
       exporters: [prometheus, debug]
+    
+    # Logs pipeline for session traces
+    # To enable file logging, add 'file/logs' to exporters and uncomment the file exporter above
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
       
   extensions: []
   
