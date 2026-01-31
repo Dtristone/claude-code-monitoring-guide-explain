@@ -26,6 +26,7 @@ This repository contains a complete walkthrough for setting up telemetry, measur
 ## Contents
 
 - [`USAGE-GUIDE.md`](USAGE-GUIDE.md) - **Comprehensive usage guide** explaining how to configure, use, and troubleshoot the monitoring stack (OTEL Collector, Prometheus, Grafana)
+- [`FAQ-METRICS-AND-TRACES.md`](FAQ-METRICS-AND-TRACES.md) - **FAQ** answering common questions about metrics, traces, and statistics (token usage, cache hit ratio, session traces)
 - [`claude_code_roi_full.md`](claude_code_roi_full.md) - Complete implementation guide
 - [`docker-compose.yml`](docker-compose.yml), [`prometheus.yml`](prometheus.yml), [`otel-collector-config.yaml`](otel-collector-config.yaml) - Docker Compose and metrics collection setup
 - [`sample-report-output.md`](sample-report-output.md) - Example automated reports
