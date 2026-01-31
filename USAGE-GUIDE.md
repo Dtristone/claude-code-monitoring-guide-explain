@@ -542,6 +542,50 @@ sum(claude_code_token_usage_tokens_total{type="cacheRead"})
 sum(claude_code_token_usage_tokens_total{type="cacheCreation"})
 ```
 
+### Prefix Cache Monitoring Queries
+
+The prefix cache (also known as KV cache or context cache) is a powerful feature that can significantly reduce costs by reusing previously processed context. Here are key queries to monitor cache performance:
+
+#### Cache Cost Savings
+
+```promql
+# Total cost saved from cache hits (USD)
+sum(claude_code_token_usage_tokens_total{type="cacheRead"}) * 0.000003 * 0.9
+```
+
+#### Cache Efficiency Percentage
+
+```promql
+# What percentage of input is served from cache
+(
+  sum(claude_code_token_usage_tokens_total{type="cacheRead"}) 
+  / 
+  (sum(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum(claude_code_token_usage_tokens_total{type="input"}))
+) * 100
+```
+
+#### Cache ROI (Return on Investment)
+
+```promql
+# How many tokens read per token cached
+sum(increase(claude_code_token_usage_tokens_total{type="cacheRead"}[$__range])) 
+/ 
+sum(increase(claude_code_token_usage_tokens_total{type="cacheCreation"}[$__range]))
+```
+
+#### Cache Performance by Model
+
+```promql
+# Compare cache efficiency across models
+(
+  sum by (model)(claude_code_token_usage_tokens_total{type="cacheRead"}) 
+  / 
+  (sum by (model)(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum by (model)(claude_code_token_usage_tokens_total{type="input"}))
+) * 100
+```
+
+For detailed explanations of these metrics and additional queries, see the [FAQ-METRICS-AND-TRACES.md](FAQ-METRICS-AND-TRACES.md#prefix-cache-statistics) document.
+
 ### PromQL Query Tips
 
 | Operator | Description | Example |
@@ -584,6 +628,13 @@ The pre-built dashboard includes these panels:
 | **Token Usage by Type** | Donut chart of token types | `sum by (type)(increase(claude_code_token_usage_tokens_total[$__range]))` |
 | **Cost by User** | Table of costs per user | `sum by (user_id)(increase(claude_code_cost_usage_USD_total[$__range]))` |
 | **Lines of Code by Type** | Table of LOC by type | `sum by (type)(increase(claude_code_lines_of_code_count_total[$__range]))` |
+| **KV Cache Hit Ratio** | Gauge showing cache efficiency | `sum(claude_code_token_usage_tokens_total{type="cacheRead"}) / (...)` |
+| **Cache Cost Savings** | USD saved from cache hits | `sum(claude_code_token_usage_tokens_total{type="cacheRead"}) * 0.000003 * 0.9` |
+| **Cache Efficiency %** | Percentage of input served from cache | `(sum(claude_code_token_usage_tokens_total{type="cacheRead"}) / ...) * 100` |
+| **Cache Read:Creation Ratio** | Tokens read per token cached | `sum(...{type="cacheRead"}) / sum(...{type="cacheCreation"})` |
+| **Cache ROI** | Return on caching investment | `sum(increase(...{type="cacheRead"}[...])) / sum(increase(...{type="cacheCreation"}[...]))` |
+| **Cache Efficiency by Model** | Compare cache performance across models | `(sum by (model)(...{type="cacheRead"}) / ...) * 100` |
+| **Cache Cost Savings Over Time** | Trend of cost savings from cache | `sum(increase(...{type="cacheRead"}[1h])) * 0.000003 * 0.9` |
 
 ### Adjusting Time Range
 

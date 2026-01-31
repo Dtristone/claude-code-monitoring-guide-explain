@@ -456,6 +456,159 @@ sum(claude_code_token_usage_tokens_total{type="cacheRead"})
 
 **Typical observed ratio**: According to real telemetry data, ratios of 39:1 (cacheRead:cacheCreation) are common, indicating excellent cache utilization in conversational workflows.
 
+### Prefix Cache Statistics
+
+Beyond basic cache hit ratios, you can calculate comprehensive prefix cache statistics similar to those available in vLLM monitoring setups. These metrics help you understand the cost savings and efficiency gains from prefix caching.
+
+#### Cache Cost Savings
+
+One of the most valuable metrics is understanding how much money you're saving through cache hits. Cache reads are significantly cheaper than full input token processing.
+
+**PromQL Query - Total Cost Savings from Cache**:
+```promql
+# Estimated cost savings (USD) from cache hits
+# Assuming cache reads cost 10% of regular input tokens
+sum(claude_code_token_usage_tokens_total{type="cacheRead"}) * 0.000003 * 0.9
+```
+
+**PromQL Query - Cost Savings Percentage**:
+```promql
+# What percentage of potential input costs were saved by cache
+sum(claude_code_token_usage_tokens_total{type="cacheRead"}) 
+/ 
+(sum(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum(claude_code_token_usage_tokens_total{type="input"}))
+```
+
+**PromQL Query - Cache Savings Over Time**:
+```promql
+# Cost savings trend over the last 24 hours
+sum(increase(claude_code_token_usage_tokens_total{type="cacheRead"}[1h])) * 0.000003 * 0.9
+```
+
+#### Cache Efficiency Percentage
+
+This metric shows what percentage of your total input context is being served from cache rather than processed as new tokens.
+
+**PromQL Query - Overall Cache Efficiency**:
+```promql
+# Percentage of total input served from cache
+(
+  sum(claude_code_token_usage_tokens_total{type="cacheRead"}) 
+  / 
+  (sum(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum(claude_code_token_usage_tokens_total{type="input"}))
+) * 100
+```
+
+**PromQL Query - Cache Efficiency by Session**:
+```promql
+# Per-session cache efficiency percentage
+(
+  sum by (session_id)(claude_code_token_usage_tokens_total{type="cacheRead"}) 
+  / 
+  (sum by (session_id)(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum by (session_id)(claude_code_token_usage_tokens_total{type="input"}))
+) * 100
+```
+
+**PromQL Query - Cache Efficiency by Model**:
+```promql
+# Compare cache efficiency across different models
+(
+  sum by (model)(claude_code_token_usage_tokens_total{type="cacheRead"}) 
+  / 
+  (sum by (model)(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum by (model)(claude_code_token_usage_tokens_total{type="input"}))
+) * 100
+```
+
+#### Cache Token Distribution
+
+Understand the distribution of cache reads vs cache creation to identify optimization opportunities.
+
+**PromQL Query - Cache Read vs Creation Ratio**:
+```promql
+# How many tokens are read from cache for every token written to cache
+sum(claude_code_token_usage_tokens_total{type="cacheRead"}) 
+/ 
+sum(claude_code_token_usage_tokens_total{type="cacheCreation"})
+```
+
+**PromQL Query - Total Cached Tokens**:
+```promql
+# Total tokens involved in caching operations
+sum(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum(claude_code_token_usage_tokens_total{type="cacheCreation"})
+```
+
+**PromQL Query - Cache Operations Over Time**:
+```promql
+# Track cache read and creation patterns over time
+sum by (type)(rate(claude_code_token_usage_tokens_total{type=~"cacheRead|cacheCreation"}[5m])) * 60
+```
+
+#### Cache Performance by User
+
+Identify which users are getting the most benefit from caching.
+
+**PromQL Query - Cache Efficiency by User**:
+```promql
+# Per-user cache efficiency
+(
+  sum by (user_id)(claude_code_token_usage_tokens_total{type="cacheRead"}) 
+  / 
+  (sum by (user_id)(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum by (user_id)(claude_code_token_usage_tokens_total{type="input"}))
+) * 100
+```
+
+**PromQL Query - Top Users by Cache Savings**:
+```promql
+# Users with highest absolute cache token usage
+topk(10, sum by (user_id)(claude_code_token_usage_tokens_total{type="cacheRead"}))
+```
+
+#### Advanced Cache Metrics
+
+**PromQL Query - Cache Waste Ratio**:
+```promql
+# Tokens cached but never read (potential waste)
+# Lower is better - indicates cache is being utilized
+sum(claude_code_token_usage_tokens_total{type="cacheCreation"}) 
+/ 
+sum(claude_code_token_usage_tokens_total{type="cacheRead"})
+```
+
+**PromQL Query - Effective Cache Utilization**:
+```promql
+# Ratio of cache reads to total tokens processed
+sum(claude_code_token_usage_tokens_total{type="cacheRead"}) 
+/ 
+sum(claude_code_token_usage_tokens_total)
+```
+
+**PromQL Query - Cache ROI**:
+```promql
+# Return on investment: how many tokens read per token cached
+# Higher values indicate better ROI
+sum(increase(claude_code_token_usage_tokens_total{type="cacheRead"}[$__range])) 
+/ 
+sum(increase(claude_code_token_usage_tokens_total{type="cacheCreation"}[$__range]))
+```
+
+#### Interpreting Prefix Cache Statistics
+
+| Metric | Good Range | Interpretation |
+|--------|-----------|----------------|
+| Cache Hit Ratio | 80-95% | High reuse of cached context |
+| Cache Efficiency % | 70-90% | Most input served from cache |
+| Cache Savings % | 60-85% | Significant cost reduction |
+| Cache Read:Creation Ratio | 20:1 - 50:1 | Excellent cache reuse |
+| Cache Waste Ratio | < 0.1 (10%) | Minimal unused cache entries |
+| Cache ROI | > 10:1 | Strong return on caching overhead |
+
+**Best Practices for Prefix Cache Optimization**:
+1. **Monitor cache efficiency by session** - Identify which workflows benefit most from caching
+2. **Track cache savings** - Quantify the cost benefits of your caching strategy
+3. **Analyze by model** - Different models may have different cache behaviors
+4. **Watch for waste** - If cache creation >> cache reads, consider adjusting your caching strategy
+5. **Compare users** - Learn from high-efficiency users' patterns
+
 ---
 
 ## Summary: Grafana Dashboard Queries
@@ -487,6 +640,25 @@ sum(claude_code_token_usage_tokens_total{type="cacheRead"})
 sum(increase(claude_code_token_usage_tokens_total{type="cacheRead"}[$__interval])) 
 / 
 (sum(increase(claude_code_token_usage_tokens_total{type="cacheRead"}[$__interval])) + sum(increase(claude_code_token_usage_tokens_total{type="cacheCreation"}[$__interval])))
+```
+
+### Prefix Cache Statistics Panel
+
+```promql
+# Cache Cost Savings (USD)
+sum(claude_code_token_usage_tokens_total{type="cacheRead"}) * 0.000003 * 0.9
+
+# Cache Efficiency Percentage
+(sum(claude_code_token_usage_tokens_total{type="cacheRead"}) / (sum(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum(claude_code_token_usage_tokens_total{type="input"}))) * 100
+
+# Cache Read:Creation Ratio
+sum(claude_code_token_usage_tokens_total{type="cacheRead"}) / sum(claude_code_token_usage_tokens_total{type="cacheCreation"})
+
+# Cache Efficiency by Model
+(sum by (model)(claude_code_token_usage_tokens_total{type="cacheRead"}) / (sum by (model)(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum by (model)(claude_code_token_usage_tokens_total{type="input"}))) * 100
+
+# Cache ROI (tokens read per token created)
+sum(increase(claude_code_token_usage_tokens_total{type="cacheRead"}[$__range])) / sum(increase(claude_code_token_usage_tokens_total{type="cacheCreation"}[$__range]))
 ```
 
 ### Session Duration Panel
@@ -529,4 +701,7 @@ sum by (session_id)(claude_code_cost_usage_USD_total)
 | Total tokens | `sum(claude_code_token_usage_tokens_total)` |
 | Tokens by session | `sum by (session_id)(claude_code_token_usage_tokens_total)` |
 | Cache hit ratio | `sum(claude_code_token_usage_tokens_total{type="cacheRead"}) / clamp_min(sum(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum(claude_code_token_usage_tokens_total{type="cacheCreation"}), 1)` |
+| Cache efficiency % | `(sum(claude_code_token_usage_tokens_total{type="cacheRead"}) / (sum(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum(claude_code_token_usage_tokens_total{type="input"}))) * 100` |
+| Cache cost savings | `sum(claude_code_token_usage_tokens_total{type="cacheRead"}) * 0.000003 * 0.9` |
+| Cache ROI | `sum(increase(claude_code_token_usage_tokens_total{type="cacheRead"}[$__range])) / sum(increase(claude_code_token_usage_tokens_total{type="cacheCreation"}[$__range]))` |
 | I/O ratio | `sum(claude_code_token_usage_tokens_total{type="input"}) / sum(claude_code_token_usage_tokens_total{type="output"})` |

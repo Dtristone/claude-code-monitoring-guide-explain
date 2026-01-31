@@ -18,8 +18,9 @@ This repository contains a complete walkthrough for setting up telemetry, measur
 
 ## Key Metrics Tracked
 
-- **Cost Metrics**: Total spend, cost per session, cost by model
+- **Cost Metrics**: Total spend, cost per session, cost by model, cache cost savings
 - **Token Usage**: Input/output tokens, cache efficiency
+- **Prefix Cache Statistics**: Cache hit ratio, cache efficiency %, cache ROI, cost savings from cache
 - **Productivity**: PR count, commit frequency, session duration
 - **Team Analytics**: Usage by developer, adoption rates
 
