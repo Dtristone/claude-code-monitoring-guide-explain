@@ -528,5 +528,5 @@ sum by (session_id)(claude_code_cost_usage_USD_total)
 |------|--------------|
 | Total tokens | `sum(claude_code_token_usage_tokens_total)` |
 | Tokens by session | `sum by (session_id)(claude_code_token_usage_tokens_total)` |
-| Cache hit ratio | `sum(rate(…{type="cacheRead"})) / (sum(rate(…{type="cacheRead"})) + sum(rate(…{type="cacheCreation"})))` |
-| I/O ratio | `sum(…{type="input"}) / sum(…{type="output"})` |
+| Cache hit ratio | `sum(claude_code_token_usage_tokens_total{type="cacheRead"}) / clamp_min(sum(claude_code_token_usage_tokens_total{type="cacheRead"}) + sum(claude_code_token_usage_tokens_total{type="cacheCreation"}), 1)` |
+| I/O ratio | `sum(claude_code_token_usage_tokens_total{type="input"}) / sum(claude_code_token_usage_tokens_total{type="output"})` |

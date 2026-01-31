@@ -690,7 +690,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(claude_code_token_usage_tokens_total{type=\"cacheRead\"}) / (sum(claude_code_token_usage_tokens_total{type=\"cacheRead\"}) + sum(claude_code_token_usage_tokens_total{type=\"cacheCreation\"}))",
+          "expr": "sum(claude_code_token_usage_tokens_total{type=\"cacheRead\"}) / clamp_min(sum(claude_code_token_usage_tokens_total{type=\"cacheRead\"}) + sum(claude_code_token_usage_tokens_total{type=\"cacheCreation\"}), 1)",
           "instant": false,
           "legendFormat": "",
           "range": true,
@@ -1030,7 +1030,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(increase(claude_code_token_usage_tokens_total{type=\"cacheRead\"}[5m])) / (sum(increase(claude_code_token_usage_tokens_total{type=\"cacheRead\"}[5m])) + sum(increase(claude_code_token_usage_tokens_total{type=\"cacheCreation\"}[5m])))",
+          "expr": "sum(increase(claude_code_token_usage_tokens_total{type=\"cacheRead\"}[5m])) / clamp_min(sum(increase(claude_code_token_usage_tokens_total{type=\"cacheRead\"}[5m])) + sum(increase(claude_code_token_usage_tokens_total{type=\"cacheCreation\"}[5m])), 1)",
           "instant": false,
           "legendFormat": "Cache Hit Ratio",
           "range": true,
