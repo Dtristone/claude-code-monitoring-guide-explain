@@ -18,14 +18,32 @@ This repository contains a complete walkthrough for setting up telemetry, measur
 
 ## Key Metrics Tracked
 
-- **Cost Metrics**: Total spend, cost per session, cost by model
+- **Cost Metrics**: Total spend, cost per session, cost by model, cache cost savings
 - **Token Usage**: Input/output tokens, cache efficiency
+- **Prefix Cache Statistics**: Cache hit ratio, cache efficiency %, cache ROI, cost savings from cache
 - **Productivity**: PR count, commit frequency, session duration
 - **Team Analytics**: Usage by developer, adoption rates
+
+## Prefix Cache Monitoring
+
+> 🚀 **New!** Comprehensive prefix cache statistics similar to vLLM monitoring examples
+
+Track and optimize your Claude Code prefix cache performance with detailed metrics:
+
+- **Cache Cost Savings**: See exactly how much money you're saving through cache reuse
+- **Cache Efficiency**: Monitor what percentage of context is served from cache
+- **Cache ROI**: Measure return on investment (tokens read per token cached)
+- **Model Comparison**: Compare cache performance across different models
+- **Real-time Tracking**: Dashboard panels showing cache trends over time
+
+**Typical cache efficiency**: 80-95% hit ratio with 20:1 to 50:1 read:creation ratios can save significant costs on long development sessions.
+
+📖 See the **[Prefix Cache Monitoring Guide](PREFIX-CACHE-GUIDE.md)** for detailed explanations, optimization strategies, and real-world examples.
 
 ## Contents
 
 - [`USAGE-GUIDE.md`](USAGE-GUIDE.md) - **Comprehensive usage guide** explaining how to configure, use, and troubleshoot the monitoring stack (OTEL Collector, Prometheus, Grafana)
+- [`PREFIX-CACHE-GUIDE.md`](PREFIX-CACHE-GUIDE.md) - **Prefix cache monitoring guide** with detailed explanations of cache metrics, optimization strategies, and real-world examples
 - [`FAQ-METRICS-AND-TRACES.md`](FAQ-METRICS-AND-TRACES.md) - **FAQ** answering common questions about metrics, traces, and statistics (token usage, cache hit ratio, session traces)
 - [`claude_code_roi_full.md`](claude_code_roi_full.md) - Complete implementation guide
 - [`docker-compose.yml`](docker-compose.yml), [`prometheus.yml`](prometheus.yml), [`otel-collector-config.yaml`](otel-collector-config.yaml) - Docker Compose and metrics collection setup
@@ -64,6 +82,8 @@ This repository contains a complete walkthrough for setting up telemetry, measur
 ### Documentation
 
 - **[USAGE-GUIDE.md](USAGE-GUIDE.md)** - Complete guide on configuring and using OTEL Collector, Prometheus, and Grafana
+- **[PREFIX-CACHE-GUIDE.md](PREFIX-CACHE-GUIDE.md)** - In-depth guide to monitoring prefix cache performance and optimizing cost savings
+- **[FAQ-METRICS-AND-TRACES.md](FAQ-METRICS-AND-TRACES.md)** - Frequently asked questions about metrics and traces
 - **[claude_code_roi_full.md](claude_code_roi_full.md)** - ROI measurement strategies and advanced queries
 - **[troubleshooting.md](troubleshooting.md)** - Solutions for common issues
 
