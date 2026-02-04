@@ -44,12 +44,12 @@ Track and optimize your Claude Code prefix cache performance with detailed metri
 
 - [`USAGE-GUIDE.md`](USAGE-GUIDE.md) - **Comprehensive usage guide** explaining how to configure, use, and troubleshoot the monitoring stack (OTEL Collector, Prometheus, Grafana)
 - [`PREFIX-CACHE-GUIDE.md`](PREFIX-CACHE-GUIDE.md) - **Prefix cache monitoring guide** with detailed explanations of cache metrics, optimization strategies, and real-world examples
-- [`FAQ-METRICS-AND-TRACES.md`](FAQ-METRICS-AND-TRACES.md) - **FAQ** answering common questions about metrics, traces, and statistics (token usage, cache hit ratio, session traces)
+- [`FAQ-METRICS-AND-TRACES.md`](FAQ-METRICS-AND-TRACES.md) - **FAQ** answering common questions about metrics, traces, and statistics (token usage, cache hit ratio, session traces, **zero tokens with custom endpoints**)
 - [`claude_code_roi_full.md`](claude_code_roi_full.md) - Complete implementation guide
 - [`docker-compose.yml`](docker-compose.yml), [`prometheus.yml`](prometheus.yml), [`otel-collector-config.yaml`](otel-collector-config.yaml) - Docker Compose and metrics collection setup
 - [`sample-report-output.md`](sample-report-output.md) - Example automated reports
 - [`report-generation-prompt.md`](report-generation-prompt.md) - Prompt template for generating productivity reports
-- [`troubleshooting.md`](troubleshooting.md) - Quick solutions for common issues
+- [`troubleshooting.md`](troubleshooting.md) - Quick solutions for common issues (including **zero token usage with custom ANTHROPIC_BASE_URL**)
 
 ## Getting Started
 

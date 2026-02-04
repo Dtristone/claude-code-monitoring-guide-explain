@@ -10,6 +10,7 @@ This document addresses common questions about Claude Code telemetry, including 
    - [Input/Output Tokens per Request/Session/Total](#input-output-tokens-per-request-session-total)
    - [Time Breakdown of Each Loop](#time-breakdown-of-each-loop-llm-calling-tool-use-others)
    - [KV Cache Hit Ratio](#kv-cache-hit-ratio)
+4. [Token Usage Shows Zero in Session JSONL Files](#4-token-usage-shows-zero-in-session-jsonl-files)
 
 ---
 
@@ -682,6 +683,134 @@ sum(claude_code_token_usage_tokens_total)
 # Cost per Session
 sum by (session_id)(claude_code_cost_usage_USD_total)
 ```
+
+---
+
+## 4. Token Usage Shows Zero in Session JSONL Files
+
+### Problem Description
+
+When using a custom `ANTHROPIC_BASE_URL` (proxy or custom API endpoint), the local session JSONL files at `~/.claude/projects/<session>.jsonl` may show zero values for all token counts:
+
+```json
+"usage":{"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}
+```
+
+This commonly occurs with configurations like:
+
+```json
+{
+  "env": {
+    "NO_PROXY": "localhost",
+    "no_proxy": "localhost",
+    "ANTHROPIC_AUTH_TOKEN": "your-token",
+    "ANTHROPIC_MODEL": "model_max",
+    "ANTHROPIC_SMALL_FAST_MODEL": "model_max",
+    "ANTHROPIC_BASE_URL": "http://your-proxy-server:port"
+  }
+}
+```
+
+### Root Cause
+
+The session JSONL files are populated from the API response. When using a custom endpoint or proxy, the issue typically occurs because:
+
+1. **Proxy doesn't return usage data**: Your proxy/custom endpoint might not be forwarding or returning the `usage` object from the upstream API response.
+
+2. **Different response format**: The custom endpoint might return usage data in a format that Claude Code doesn't recognize.
+
+3. **Missing fields**: The proxy might strip or not include the usage statistics when forwarding responses.
+
+### Solution: Use OTEL Metrics Instead
+
+Even when session JSONL files show zeros, **OpenTelemetry (OTEL) metrics can reliably track token usage**. OTEL metrics are instrumented at the application level and don't depend on the API response format.
+
+#### Step 1: Enable OTEL Telemetry
+
+Update your Claude Code settings (e.g., `~/.claude.json` or VS Code settings):
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://your-proxy-server:port",
+    "ANTHROPIC_AUTH_TOKEN": "your-token",
+    "ANTHROPIC_MODEL": "model_max",
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4317",
+    "OTEL_METRIC_EXPORT_INTERVAL": "1000"
+  }
+}
+```
+
+#### Step 2: Start the Monitoring Stack
+
+```bash
+docker-compose up -d
+```
+
+#### Step 3: Verify Metrics Are Being Collected
+
+Test with console output first:
+
+```bash
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_METRICS_EXPORTER=console
+export OTEL_METRIC_EXPORT_INTERVAL=1000
+claude -p "test"
+```
+
+Look for `claude_code.token.usage` in the output.
+
+#### Step 4: Query Token Usage from Prometheus
+
+Once OTEL is configured, use these PromQL queries to get token usage:
+
+```promql
+# Total input tokens
+sum(claude_code_token_usage_tokens_total{type="input"})
+
+# Total output tokens
+sum(claude_code_token_usage_tokens_total{type="output"})
+
+# Token usage by type
+sum by (type)(claude_code_token_usage_tokens_total)
+
+# Tokens per session
+sum by (session_id)(claude_code_token_usage_tokens_total)
+```
+
+### Alternative: Fix Your Proxy/Custom Endpoint
+
+If you prefer to get usage data in the session JSONL files, ensure your proxy/custom endpoint returns the standard Anthropic API response format with the `usage` object:
+
+```json
+{
+  "content": [...],
+  "usage": {
+    "input_tokens": 150,
+    "output_tokens": 200,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0
+  }
+}
+```
+
+Contact your proxy provider or check your custom endpoint implementation to ensure it passes through or properly formats the usage information.
+
+### Quick Comparison: Session JSONL vs OTEL Metrics
+
+| Aspect | Session JSONL Files | OTEL Metrics |
+|--------|---------------------|--------------|
+| **Location** | `~/.claude/projects/<session>.jsonl` | Prometheus/OTEL Collector |
+| **Dependency** | Requires API response to include usage data | Instrumented at application level |
+| **Custom Endpoints** | May not work if proxy doesn't return usage | Works independently of API response format |
+| **Historical Data** | Limited to current session | Stored in Prometheus with configurable retention |
+| **Querying** | Requires parsing JSONL files | PromQL queries in Prometheus/Grafana |
+| **Aggregation** | Manual calculation | Built-in aggregation functions |
+
+**Recommendation**: For users with custom `ANTHROPIC_BASE_URL` configurations, OTEL metrics provide a more reliable and feature-rich way to track token usage and costs.
 
 ---
 

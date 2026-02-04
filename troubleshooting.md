@@ -163,6 +163,74 @@ npm install -g @anthropic-ai/claude-code
 - AWS users: Check AWS Cost Explorer
 - Google Cloud users: Check GCP Billing
 
+### Token Usage Shows Zero in Session JSONL Files
+
+**Problem**: When using a custom `ANTHROPIC_BASE_URL` (proxy or custom endpoint), the session JSONL files at `~/.claude/projects/<session>.jsonl` show zero for all token counts:
+
+```json
+"usage":{"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}
+```
+
+**Cause**: This typically occurs when using a custom API endpoint or proxy that doesn't return the `usage` field in the API response, or returns it in a different format than the official Anthropic API. Claude Code relies on the API response to populate these values in the local session logs.
+
+Common configurations that may cause this:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://your-proxy-server:port",
+    "ANTHROPIC_AUTH_TOKEN": "your-token"
+  }
+}
+```
+
+**Solutions**:
+
+1. **Check your proxy/endpoint is returning usage data**: The custom endpoint should return the `usage` object in API responses with the standard Anthropic format:
+   ```json
+   {
+     "usage": {
+       "input_tokens": 150,
+       "output_tokens": 200,
+       "cache_creation_input_tokens": 0,
+       "cache_read_input_tokens": 0
+     }
+   }
+   ```
+
+2. **Use OTEL metrics instead**: Even if session JSONL files show zeros, OpenTelemetry metrics can still track token usage accurately. Configure OTEL to collect metrics:
+   ```json
+   {
+     "env": {
+       "ANTHROPIC_BASE_URL": "http://your-proxy-server:port",
+       "ANTHROPIC_AUTH_TOKEN": "your-token",
+       "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+       "OTEL_METRICS_EXPORTER": "otlp",
+       "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc",
+       "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4317"
+     }
+   }
+   ```
+   
+   Then query token usage from Prometheus:
+   ```promql
+   sum by (type)(claude_code_token_usage_tokens_total)
+   ```
+
+3. **Verify with console output**: Test if telemetry captures token data even when session JSONL doesn't:
+   ```bash
+   export CLAUDE_CODE_ENABLE_TELEMETRY=1
+   export OTEL_METRICS_EXPORTER=console
+   export OTEL_METRIC_EXPORT_INTERVAL=1000
+   claude -p "test"
+   ```
+   
+   Look for `claude_code.token.usage` metrics in the output.
+
+4. **Contact your proxy provider**: If using a third-party proxy service, ensure it passes through the usage information from the upstream API responses.
+
+**Note**: The session JSONL files are local logs that depend on API response content. OTEL metrics are often more reliable for tracking usage when using custom endpoints, as they can be instrumented independently of the API response format.
+
 ## Getting Help
 
 If these solutions don't resolve your issue:
