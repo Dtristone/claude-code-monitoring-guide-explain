@@ -646,7 +646,7 @@ def generate_markdown_report(stats, sessions, cache_metrics):
     for token_type, count in stats['tokens_by_type'].items():
         report.append(f"| {token_type} | {count:,} |")
     
-    total_tokens = sum(stats['tokens_by_type'].values())
+    total_tokens = sum(stats['tokens_by_type'].values()) if stats['tokens_by_type'] else 0
     report.append(f"| **Total** | **{total_tokens:,}** |")
     
     # Cost by model
