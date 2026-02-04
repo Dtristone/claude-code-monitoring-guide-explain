@@ -101,7 +101,60 @@ The `type` label for `token.usage` metric can have these values:
 
 ## Quick Start
 
-### Step 1: Configure Claude Code for Console Output
+### Option A: Using the CLI Wrapper (Recommended)
+
+The `claude-metrics` CLI wrapper automatically handles all configuration, log file management, and metrics capture for you.
+
+#### Install the CLI Wrapper
+
+```bash
+# Add scripts directory to PATH (add to ~/.bashrc or ~/.zshrc)
+# Replace <repo-path> with your actual repository path
+export PATH="<repo-path>/scripts:$PATH"
+
+# Or create a symlink
+sudo ln -s <repo-path>/scripts/claude-metrics /usr/local/bin/claude-metrics
+```
+
+#### Usage
+
+```bash
+# Run claude with automatic metrics capture
+claude-metrics run -p "hello world"
+
+# Run interactive mode with metrics capture
+claude-metrics run
+
+# Parse all captured session logs
+claude-metrics parse
+
+# Generate a report
+claude-metrics report
+
+# Generate HTML timeline
+claude-metrics timeline --format html -o timeline.html
+
+# List all captured sessions
+claude-metrics list
+
+# Show status
+claude-metrics status
+
+# Clean old sessions (older than 7 days)
+claude-metrics clean --days 7
+```
+
+The CLI wrapper will:
+- ✅ Automatically configure telemetry environment variables
+- ✅ Create session-specific log files in `~/.claude-metrics/sessions/`
+- ✅ Name logs with timestamps (e.g., `session_20250115_143022.log`)
+- ✅ Store all metrics in a central SQLite database
+
+### Option B: Manual Configuration
+
+If you prefer manual control, you can configure Claude Code directly.
+
+#### Step 1: Configure Claude Code for Console Output
 
 Set these environment variables to export metrics to console:
 
@@ -123,7 +176,7 @@ Or add to `~/.claude.json`:
 }
 ```
 
-### Step 2: Capture Metrics to File
+#### Step 2: Capture Metrics to File
 
 Run Claude Code and redirect output to a file:
 
@@ -138,7 +191,7 @@ Or run a specific command:
 claude -p "your prompt here" 2>&1 | tee -a ~/claude_metrics.log
 ```
 
-### Step 3: Parse and Analyze
+#### Step 3: Parse and Analyze
 
 Use the provided Python scripts to parse and analyze:
 

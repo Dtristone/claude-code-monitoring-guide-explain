@@ -85,28 +85,40 @@ Track and optimize your Claude Code prefix cache performance with detailed metri
 
 > 🆕 **New!** For air-gapped environments or when you can't use Docker/external services.
 
-1. **Configure Claude Code for console output:**
-   ```json
-   {
-     "env": {
-       "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
-       "OTEL_METRICS_EXPORTER": "console",
-       "OTEL_METRIC_EXPORT_INTERVAL": "5000"
-     }
-   }
-   ```
+**Using the CLI Wrapper (Recommended):**
 
-2. **Capture metrics to a file:**
-   ```bash
-   claude 2>&1 | tee -a ~/claude_metrics.log
-   ```
+```bash
+# Add to PATH (one-time setup)
+export PATH="/path/to/scripts:$PATH"
 
-3. **Parse and analyze locally:**
-   ```bash
-   python scripts/parse_otel_metrics.py ~/claude_metrics.log
-   python scripts/generate_local_report.py --output report.md
-   python scripts/generate_timeline.py --format html --output timeline.html
-   ```
+# Run claude with automatic metrics capture
+claude-metrics run -p "your prompt"
+
+# Parse all session logs and generate report
+claude-metrics parse
+claude-metrics report
+
+# List captured sessions
+claude-metrics list
+```
+
+The `claude-metrics` wrapper automatically:
+- Configures telemetry environment variables
+- Saves metrics to session-specific log files (`~/.claude-metrics/sessions/`)
+- Names logs with timestamps (no manual naming needed)
+
+**Manual Method:**
+
+```bash
+# Configure and run
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_METRICS_EXPORTER=console
+claude 2>&1 | tee -a ~/claude_metrics.log
+
+# Parse and analyze
+python scripts/parse_otel_metrics.py ~/claude_metrics.log
+python scripts/generate_local_report.py --output report.md
+```
 
 📖 See **[LOCAL-OFFLINE-ANALYSIS.md](LOCAL-OFFLINE-ANALYSIS.md)** for the complete offline analysis guide.
 

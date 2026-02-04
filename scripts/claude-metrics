@@ -1,0 +1,401 @@
+#!/usr/bin/env python3
+"""
+claude-metrics - A wrapper for Claude Code CLI that automatically captures OTEL metrics.
+
+This script:
+1. Wraps the original 'claude' CLI command
+2. Automatically captures OTEL metrics to session-specific log files
+3. Provides commands for parsing, reporting, and managing metrics
+
+Usage:
+    claude-metrics run [claude args...]    - Run claude with metrics capture
+    claude-metrics parse [session]         - Parse metrics from log files
+    claude-metrics report [--session ID]   - Generate report
+    claude-metrics timeline [--format FMT] - Generate timeline
+    claude-metrics list                    - List all captured sessions
+    claude-metrics clean [--days N]        - Clean old session logs
+
+Examples:
+    claude-metrics run -p "hello world"
+    claude-metrics run                      # Interactive mode
+    claude-metrics parse                    # Parse all session logs
+    claude-metrics report                   # Generate report from all sessions
+    claude-metrics list                     # List captured sessions
+"""
+
+import os
+import sys
+import subprocess
+import argparse
+from datetime import datetime, timedelta
+from pathlib import Path
+import shutil
+import json
+import re
+
+# Default directories
+METRICS_DIR = Path.home() / '.claude-metrics'
+SESSIONS_DIR = METRICS_DIR / 'sessions'
+DB_PATH = METRICS_DIR / 'metrics.db'
+
+# Get the directory where this script is located (for finding other scripts)
+SCRIPT_DIR = Path(__file__).parent.resolve()
+
+
+def ensure_directories():
+    """Ensure metrics directories exist."""
+    METRICS_DIR.mkdir(parents=True, exist_ok=True)
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def generate_session_log_path():
+    """Generate a unique log file path for a new session."""
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    return SESSIONS_DIR / f"session_{timestamp}.log"
+
+
+def get_env_for_metrics():
+    """Get environment variables configured for OTEL console metrics."""
+    env = os.environ.copy()
+    env['CLAUDE_CODE_ENABLE_TELEMETRY'] = '1'
+    env['OTEL_METRICS_EXPORTER'] = 'console'
+    env['OTEL_METRIC_EXPORT_INTERVAL'] = '5000'
+    return env
+
+
+def run_claude(claude_args, log_path):
+    """Run claude CLI with metrics capture to log file."""
+    ensure_directories()
+    
+    # Find claude executable
+    claude_cmd = shutil.which('claude')
+    if not claude_cmd:
+        print("Error: 'claude' command not found in PATH")
+        print("Please install Claude Code CLI first.")
+        sys.exit(1)
+    
+    env = get_env_for_metrics()
+    
+    print(f"📊 Metrics will be saved to: {log_path}")
+    print(f"{'─' * 50}")
+    
+    # Build command
+    cmd = [claude_cmd] + claude_args
+    
+    try:
+        with open(log_path, 'w') as log_file:
+            # Write session header
+            log_file.write(f"=== Claude Metrics Session ===\n")
+            log_file.write(f"Started: {datetime.now().isoformat()}\n")
+            log_file.write(f"Command: claude {' '.join(claude_args)}\n")
+            log_file.write(f"{'=' * 30}\n\n")
+            log_file.flush()
+            
+            # Run claude with output to both console and log file
+            process = subprocess.Popen(
+                cmd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+            
+            # Stream output to both console and log file
+            for line in process.stdout:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                log_file.write(line)
+                log_file.flush()
+            
+            process.wait()
+            
+            # Write session footer
+            log_file.write(f"\n{'=' * 30}\n")
+            log_file.write(f"Ended: {datetime.now().isoformat()}\n")
+            log_file.write(f"Exit code: {process.returncode}\n")
+        
+        print(f"\n{'─' * 50}")
+        print(f"📊 Session metrics saved to: {log_path}")
+        print(f"   Run 'claude-metrics parse' to process metrics")
+        print(f"   Run 'claude-metrics report' to generate report")
+        
+        return process.returncode
+        
+    except KeyboardInterrupt:
+        print("\n\nSession interrupted by user.")
+        return 130
+
+
+def list_sessions():
+    """List all captured session log files."""
+    ensure_directories()
+    
+    sessions = sorted(SESSIONS_DIR.glob('session_*.log'), reverse=True)
+    
+    if not sessions:
+        print("No captured sessions found.")
+        print(f"Run 'claude-metrics run' to start capturing metrics.")
+        return
+    
+    print(f"📋 Captured Sessions ({len(sessions)} total)")
+    print(f"{'─' * 60}")
+    print(f"{'Session':<30} {'Size':<10} {'Modified':<20}")
+    print(f"{'─' * 60}")
+    
+    for session_path in sessions:
+        stat = session_path.stat()
+        size = f"{stat.st_size / 1024:.1f} KB"
+        modified = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
+        name = session_path.stem
+        print(f"{name:<30} {size:<10} {modified:<20}")
+    
+    print(f"{'─' * 60}")
+    print(f"Sessions directory: {SESSIONS_DIR}")
+
+
+def parse_sessions(session_filter=None):
+    """Parse session logs and store in database."""
+    ensure_directories()
+    
+    if session_filter:
+        # Parse specific session
+        if session_filter.endswith('.log'):
+            log_files = [SESSIONS_DIR / session_filter]
+        else:
+            log_files = list(SESSIONS_DIR.glob(f"*{session_filter}*.log"))
+    else:
+        # Parse all sessions
+        log_files = list(SESSIONS_DIR.glob('session_*.log'))
+    
+    if not log_files:
+        print("No session logs found to parse.")
+        return 1
+    
+    print(f"📊 Parsing {len(log_files)} session log(s)...")
+    
+    # Import and use the parse script
+    parse_script = SCRIPT_DIR / 'parse_otel_metrics.py'
+    if not parse_script.exists():
+        print(f"Error: Parse script not found at {parse_script}")
+        return 1
+    
+    total_metrics = 0
+    for log_file in log_files:
+        if not log_file.exists():
+            print(f"  Skipping (not found): {log_file}")
+            continue
+        
+        print(f"  Parsing: {log_file.name}")
+        
+        # Run the parser
+        result = subprocess.run(
+            [sys.executable, str(parse_script), str(log_file), '--db', str(DB_PATH)],
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            print(f"    Warning: Parser returned non-zero exit code")
+            if result.stderr:
+                print(f"    {result.stderr}")
+        else:
+            # Extract metric count from output
+            match = re.search(r'Found (\d+) metric blocks', result.stdout)
+            if match:
+                count = int(match.group(1))
+                total_metrics += count
+                print(f"    Found {count} metric blocks")
+    
+    print(f"\n✅ Parsed {total_metrics} total metric blocks")
+    print(f"   Database: {DB_PATH}")
+    return 0
+
+
+def generate_report(session_id=None, output_path=None):
+    """Generate report from parsed metrics."""
+    ensure_directories()
+    
+    if not DB_PATH.exists():
+        print("Error: No metrics database found.")
+        print("Run 'claude-metrics parse' first to process session logs.")
+        return 1
+    
+    report_script = SCRIPT_DIR / 'generate_local_report.py'
+    if not report_script.exists():
+        print(f"Error: Report script not found at {report_script}")
+        return 1
+    
+    cmd = [sys.executable, str(report_script), '--db', str(DB_PATH)]
+    
+    if output_path:
+        cmd.extend(['--output', output_path])
+    
+    result = subprocess.run(cmd)
+    return result.returncode
+
+
+def generate_timeline(format_type='text', output_path=None):
+    """Generate timeline visualization."""
+    ensure_directories()
+    
+    if not DB_PATH.exists():
+        print("Error: No metrics database found.")
+        print("Run 'claude-metrics parse' first to process session logs.")
+        return 1
+    
+    timeline_script = SCRIPT_DIR / 'generate_timeline.py'
+    if not timeline_script.exists():
+        print(f"Error: Timeline script not found at {timeline_script}")
+        return 1
+    
+    cmd = [sys.executable, str(timeline_script), '--db', str(DB_PATH), '--format', format_type]
+    
+    if output_path:
+        cmd.extend(['--output', output_path])
+    
+    result = subprocess.run(cmd)
+    return result.returncode
+
+
+def clean_sessions(days=30):
+    """Clean session logs older than specified days."""
+    ensure_directories()
+    
+    cutoff = datetime.now() - timedelta(days=days)
+    sessions = list(SESSIONS_DIR.glob('session_*.log'))
+    
+    removed = 0
+    for session_path in sessions:
+        mtime = datetime.fromtimestamp(session_path.stat().st_mtime)
+        if mtime < cutoff:
+            session_path.unlink()
+            removed += 1
+            print(f"  Removed: {session_path.name}")
+    
+    if removed:
+        print(f"\n✅ Removed {removed} session log(s) older than {days} days")
+    else:
+        print(f"No session logs older than {days} days found.")
+
+
+def show_status():
+    """Show current metrics status."""
+    ensure_directories()
+    
+    print("📊 Claude Metrics Status")
+    print(f"{'─' * 50}")
+    
+    # Count sessions
+    sessions = list(SESSIONS_DIR.glob('session_*.log'))
+    print(f"Session logs: {len(sessions)}")
+    
+    # Database info
+    if DB_PATH.exists():
+        size = DB_PATH.stat().st_size / 1024
+        print(f"Database: {DB_PATH} ({size:.1f} KB)")
+    else:
+        print(f"Database: Not created yet")
+    
+    # Check if metrics capture is configured
+    if os.environ.get('CLAUDE_CODE_ENABLE_TELEMETRY') == '1':
+        print(f"Telemetry: Enabled")
+    else:
+        print(f"Telemetry: Not configured in environment")
+    
+    print(f"\nDirectories:")
+    print(f"  Metrics: {METRICS_DIR}")
+    print(f"  Sessions: {SESSIONS_DIR}")
+    
+    print(f"\n💡 Quick commands:")
+    print(f"  claude-metrics run -p 'hello'  # Run with metrics capture")
+    print(f"  claude-metrics parse            # Parse all session logs")
+    print(f"  claude-metrics report           # Generate report")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Claude Code CLI wrapper with automatic OTEL metrics capture',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  claude-metrics run -p "hello world"     Run claude with metrics capture
+  claude-metrics run                      Interactive mode with metrics
+  claude-metrics parse                    Parse all session logs
+  claude-metrics report                   Generate metrics report
+  claude-metrics report -o report.md      Save report to file
+  claude-metrics timeline --format html   Generate HTML timeline
+  claude-metrics list                     List captured sessions
+  claude-metrics status                   Show metrics status
+  claude-metrics clean --days 7           Remove logs older than 7 days
+        """
+    )
+    
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    
+    # Run command
+    run_parser = subparsers.add_parser('run', help='Run claude with metrics capture')
+    run_parser.add_argument('claude_args', nargs='*', help='Arguments to pass to claude')
+    
+    # Parse command
+    parse_parser = subparsers.add_parser('parse', help='Parse session logs into database')
+    parse_parser.add_argument('session', nargs='?', help='Specific session to parse (optional)')
+    
+    # Report command
+    report_parser = subparsers.add_parser('report', help='Generate metrics report')
+    report_parser.add_argument('-o', '--output', help='Output file path')
+    report_parser.add_argument('--session', help='Specific session ID to report on')
+    
+    # Timeline command
+    timeline_parser = subparsers.add_parser('timeline', help='Generate timeline visualization')
+    timeline_parser.add_argument('--format', '-f', choices=['text', 'html', 'csv'], 
+                                  default='text', help='Output format')
+    timeline_parser.add_argument('-o', '--output', help='Output file path')
+    
+    # List command
+    subparsers.add_parser('list', help='List captured sessions')
+    
+    # Status command
+    subparsers.add_parser('status', help='Show metrics status')
+    
+    # Clean command
+    clean_parser = subparsers.add_parser('clean', help='Clean old session logs')
+    clean_parser.add_argument('--days', type=int, default=30, 
+                              help='Remove logs older than N days (default: 30)')
+    
+    args = parser.parse_args()
+    
+    if not args.command:
+        parser.print_help()
+        return 0
+    
+    if args.command == 'run':
+        log_path = generate_session_log_path()
+        return run_claude(args.claude_args, log_path)
+    
+    elif args.command == 'parse':
+        return parse_sessions(args.session)
+    
+    elif args.command == 'report':
+        return generate_report(args.session, args.output)
+    
+    elif args.command == 'timeline':
+        return generate_timeline(args.format, args.output)
+    
+    elif args.command == 'list':
+        list_sessions()
+        return 0
+    
+    elif args.command == 'status':
+        show_status()
+        return 0
+    
+    elif args.command == 'clean':
+        clean_sessions(args.days)
+        return 0
+    
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
