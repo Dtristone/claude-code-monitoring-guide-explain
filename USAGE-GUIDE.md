@@ -342,7 +342,7 @@ scrape_configs:
 
 ## Available Metrics
 
-Claude Code exports the following metrics according to the [official monitoring guide](https://github.com/anthropics/claude-code-monitoring-guide/blob/main/claude_code_roi_full.md):
+Claude Code exports the following metrics. For the most up-to-date list, see the [official Claude Code Monitoring Usage documentation](https://docs.anthropic.com/en/docs/claude-code/monitoring-usage).
 
 | Metric Name | Description | Unit | Prometheus Name |
 |-------------|-------------|------|-----------------|

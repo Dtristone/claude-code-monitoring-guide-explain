@@ -43,17 +43,19 @@ Track and optimize your Claude Code prefix cache performance with detailed metri
 ## Contents
 
 - [`USAGE-GUIDE.md`](USAGE-GUIDE.md) - **Comprehensive usage guide** explaining how to configure, use, and troubleshoot the monitoring stack (OTEL Collector, Prometheus, Grafana)
+- [`LOCAL-OFFLINE-ANALYSIS.md`](LOCAL-OFFLINE-ANALYSIS.md) - **🆕 Offline local analysis guide** for capturing and analyzing OTEL metrics without external services (no Docker, no internet required)
 - [`PREFIX-CACHE-GUIDE.md`](PREFIX-CACHE-GUIDE.md) - **Prefix cache monitoring guide** with detailed explanations of cache metrics, optimization strategies, and real-world examples
-- [`FAQ-METRICS-AND-TRACES.md`](FAQ-METRICS-AND-TRACES.md) - **FAQ** answering common questions about metrics, traces, and statistics (token usage, cache hit ratio, session traces)
+- [`FAQ-METRICS-AND-TRACES.md`](FAQ-METRICS-AND-TRACES.md) - **FAQ** answering common questions about metrics, traces, and statistics (token usage, cache hit ratio, session traces, **zero tokens with custom endpoints**)
 - [`claude_code_roi_full.md`](claude_code_roi_full.md) - Complete implementation guide
 - [`docker-compose.yml`](docker-compose.yml), [`prometheus.yml`](prometheus.yml), [`otel-collector-config.yaml`](otel-collector-config.yaml) - Docker Compose and metrics collection setup
+- [`scripts/`](scripts/) - **Python scripts** for local offline metrics parsing, report generation, and timeline visualization
 - [`sample-report-output.md`](sample-report-output.md) - Example automated reports
 - [`report-generation-prompt.md`](report-generation-prompt.md) - Prompt template for generating productivity reports
-- [`troubleshooting.md`](troubleshooting.md) - Quick solutions for common issues
+- [`troubleshooting.md`](troubleshooting.md) - Quick solutions for common issues (including **zero token usage with custom ANTHROPIC_BASE_URL**)
 
 ## Getting Started
 
-### Quick Setup
+### Quick Setup (with Docker)
 
 1. **Start the monitoring stack:**
    ```bash
@@ -79,13 +81,60 @@ Track and optimize your Claude Code prefix cache performance with detailed metri
    - **Grafana**: http://localhost:3000 (admin/admin)
    - **Raw Metrics**: http://localhost:8889/metrics
 
+### Offline Local Analysis (No Docker/Internet Required)
+
+> 🆕 **New!** For air-gapped environments or when you can't use Docker/external services.
+
+**Using the CLI Wrapper (Recommended):**
+
+```bash
+# Add to PATH (one-time setup)
+export PATH="/path/to/scripts:$PATH"
+
+# Run claude with automatic metrics capture
+claude-metrics run -p "your prompt"
+
+# Parse all session logs and generate report
+claude-metrics parse
+claude-metrics report
+
+# List captured sessions
+claude-metrics list
+```
+
+The `claude-metrics` wrapper automatically:
+- Configures telemetry environment variables
+- Saves metrics to session-specific log files (`~/.claude-metrics/sessions/`)
+- Names logs with timestamps (no manual naming needed)
+
+**Manual Method:**
+
+```bash
+# Configure and run
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_METRICS_EXPORTER=console
+claude 2>&1 | tee -a ~/claude_metrics.log
+
+# Parse and analyze
+python scripts/parse_otel_metrics.py ~/claude_metrics.log
+python scripts/generate_local_report.py --output report.md
+```
+
+📖 See **[LOCAL-OFFLINE-ANALYSIS.md](LOCAL-OFFLINE-ANALYSIS.md)** for the complete offline analysis guide.
+
 ### Documentation
 
 - **[USAGE-GUIDE.md](USAGE-GUIDE.md)** - Complete guide on configuring and using OTEL Collector, Prometheus, and Grafana
+- **[LOCAL-OFFLINE-ANALYSIS.md](LOCAL-OFFLINE-ANALYSIS.md)** - Offline local analysis without external services
 - **[PREFIX-CACHE-GUIDE.md](PREFIX-CACHE-GUIDE.md)** - In-depth guide to monitoring prefix cache performance and optimizing cost savings
 - **[FAQ-METRICS-AND-TRACES.md](FAQ-METRICS-AND-TRACES.md)** - Frequently asked questions about metrics and traces
 - **[claude_code_roi_full.md](claude_code_roi_full.md)** - ROI measurement strategies and advanced queries
 - **[troubleshooting.md](troubleshooting.md)** - Solutions for common issues
+
+### Official Documentation
+
+For the most up-to-date information on Claude Code telemetry and metrics, see:
+- [Claude Code Monitoring Usage](https://docs.anthropic.com/en/docs/claude-code/monitoring-usage)
 
 ## Contributing
 
